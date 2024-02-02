@@ -25,8 +25,8 @@ class Product
     #[ORM\Column(length: 255)]
     private ?string $brand = null;
 
-    #[ORM\Column]
-    private ?float $price = null;
+    #[ORM\Column(type: 'integer')]
+    private ?int $price = null;
 
     public function getId(): ?int
     {
@@ -69,12 +69,12 @@ class Product
         return $this;
     }
 
-    public function getPrice(): ?float
+    public function getPrice(): ?int
     {
         return $this->price;
     }
 
-    public function setPrice(float $price): static
+    public function setPrice(int $price): static
     {
         $this->price = $price;
 
