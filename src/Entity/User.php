@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
 use App\Repository\UserRepository;
+use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
@@ -12,12 +13,15 @@ class User implements PasswordAuthenticatedUserInterface
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(["getUsers"])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[Groups(["getUsers"])]
     private ?string $username = null;
 
     #[ORM\Column(length: 255)]
+    #[Groups(["getUsers"])]
     private ?string $email = null;
 
     #[ORM\Column(length: 255)]
@@ -27,6 +31,7 @@ class User implements PasswordAuthenticatedUserInterface
     private array $roles = [];
 
     #[ORM\ManyToOne(inversedBy: 'users')]
+    #[Groups(["getUsers"])]
     private ?Client $client = null;
 
     public function getId(): ?int

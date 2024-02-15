@@ -43,6 +43,11 @@ class UserFixtures extends Fixture implements DependentFixtureInterface
                 ->setPassword($this->userPasswordHasher->hashPassword($user, $this->passwordData))
                 ->setRoles(['ROLE_USER'])
                 ->setClient($clients[array_rand($clients)]);
+            if ($i === 0) { //
+                $user->setRoles(['ROLE_ADMIN']);
+                $user->setUsername('vincent.bordelais');
+                $user->setEmail('vincent.bordelais.dev@gmail.com');
+            }
             $manager->persist($user);
         }
         $manager->flush();
