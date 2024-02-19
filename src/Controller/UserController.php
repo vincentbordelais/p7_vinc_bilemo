@@ -20,16 +20,67 @@ class UserController extends AbstractController
     #[Route('/api/users', name: 'users', methods: ['GET'])]
     public function getUsersList(UserRepository $userRepository, SerializerInterface $serializer): JsonResponse
     {
+        // Récupération de la liste des utilisateurs
         $userList = $userRepository->findAll();
-        $jsonUserList = $serializer->serialize($userList, 'json', ['groups' => 'getUsers']);
-        return new JsonResponse($jsonUserList, Response::HTTP_OK, [], true);
+
+        // Création d'un tableau pour stocker les utilisateurs avec les produits
+        $usersWithProducts = [];
+
+        // Parcours de la liste des utilisateurs
+        foreach ($userList as $user) {
+            // Sérialisation de l'utilisateur en JSON
+            $jsonUser = $serializer->serialize($user, 'json', ['groups' => 'getUsers']);
+
+            // Décodage du JSON en tableau associatif
+            $userArray = json_decode($jsonUser, true);
+
+            // Récupération du client associé à l'utilisateur
+            $client = $user->getClient();
+
+            // Récupération des produits associés au client
+            $products = $client ? $client->getProducts()->toArray() : [];
+
+            // Sérialisation des produits en JSON
+            $jsonProducts = $serializer->serialize($products, 'json');
+
+            // Décodage du JSON des produits en tableau associatif
+            $productsArray = json_decode($jsonProducts, true);
+
+            // Ajout des produits au tableau de l'utilisateur
+            $userArray['client']['products'] = $productsArray;
+
+            // Ajout de l'utilisateur modifié au tableau final
+            $usersWithProducts[] = $userArray;
+        }
+
+        // Sérialisation du tableau modifié en JSON et retour de la réponse
+        return new JsonResponse(json_encode($usersWithProducts), Response::HTTP_OK, [], true);
     }
+
 
     #[Route('/api/users/{id}', name: 'detailUser', methods: ['GET'])] // Plus simple avec ParamConverter :
     public function getDetailUser(User $user, SerializerInterface $serializer): JsonResponse 
     {
+        // Récupération de l'utilisateur et sérialisation en JSON
         $jsonUser = $serializer->serialize($user, 'json', ['groups' => 'getUsers']);
-        return new JsonResponse($jsonUser, Response::HTTP_OK, ['accept' => 'json'], true);
+
+        // Décodage du JSON en tableau associatif
+        $userArray = json_decode($jsonUser, true);
+
+        // Récupération des produits associés au client
+        $products = $user->getClient()->getProducts()->toArray();
+
+        // Sérialisation des produits en JSON
+        $jsonProducts = $serializer->serialize($products, 'json');
+
+        // Décodage du JSON des produits en tableau associatif
+        $productsArray = json_decode($jsonProducts, true);
+
+        // Ajout des produits au tableau de l'utilisateur
+        $userArray['client']['products'] = $productsArray;
+
+        // Sérialisation du tableau modifié en JSON et retour de la réponse
+        return new JsonResponse(json_encode($userArray), Response::HTTP_OK, ['accept' => 'json'], true);
     }
 
     #[Route('/api/users/{id}', name: 'deleteUser', methods: ['DELETE'])]
@@ -39,24 +90,50 @@ class UserController extends AbstractController
         $em->flush();
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
-
+    
     #[Route('/api/users', name: 'createUser', methods: ['POST'])]
     public function createUser(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UrlGeneratorInterface $urlGenerator, ClientRepository $clientRepository): JsonResponse
     {
         $user = $serializer->deserialize($request->getContent(), User::class, 'json');
         $em->persist($user);
         $em->flush();
-
+    
         $content = $request->toArray();
         $idClient = $content['idClient'] ?? -1;
-
-        $user->setClient($clientRepository->find($idClient));
-
+    
+        $client = $clientRepository->find($idClient);
+        $user->setClient($client);
+    
+        // Récupération des produits associés au client
+        $products = $client ? $client->getProducts()->toArray() : [];
+    
+        // Sérialisation complète des produits avec toutes les informations
+        $productsData = [];
+        foreach ($products as $product) {
+            $productsData[] = $serializer->serialize($product, 'json');
+        }
+    
+        // Sérialisation de l'utilisateur avec les données complètes du client et des produits
         $jsonUser = $serializer->serialize($user, 'json', ['groups' => 'getUsers']);
-        // L'usage veut qu'on affiche dans le header l'url qu'on vient de créer. On calcule l'url (avec UrlGeneratorInterface) qu'on retourne dans la réponse :
+    
+        // Décodage des données sérialisées des produits
+        $decodedProductsData = [];
+        foreach ($productsData as $productData) {
+            $decodedProductsData[] = json_decode($productData, true);
+        }
+    
+        // Ajout des produits sérialisés aux données du client
+        $jsonUserArray = json_decode($jsonUser, true);
+        $jsonUserArray['client']['products'] = $decodedProductsData;
+    
+        // Régénération de la réponse JSON avec les données mises à jour
+        $jsonUser = json_encode($jsonUserArray);
+    
+        // Génération de l'URL de détail de l'utilisateur
         $location = $urlGenerator->generate('detailUser', ['id' => $user->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
+    
         return new JsonResponse($jsonUser, Response::HTTP_CREATED, ["location" => $location], true);
-    }
+    }    
 
     #[Route('/api/users/{id}', name:"updateUser", methods:['PUT'])]
     public function updateUser(Request $request, SerializerInterface $serializer, User $currentUser, EntityManagerInterface $em, ClientRepository $clientRepository): JsonResponse 

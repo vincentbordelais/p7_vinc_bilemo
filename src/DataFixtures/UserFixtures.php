@@ -4,6 +4,7 @@ namespace App\DataFixtures;
 
 use Faker\Factory;
 use App\Entity\User;
+use App\DataFixtures\ClientFixtures;
 use App\Repository\ClientRepository;
 use Doctrine\Persistence\ObjectManager;
 use Doctrine\Bundle\FixturesBundle\Fixture;
@@ -12,6 +13,11 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class UserFixtures extends Fixture implements DependentFixtureInterface
 {
+    public function getDependencies()
+    {
+        return [ClientFixtures::class];
+    }
+    
     private $passwordData = 'aze';
     private $userPasswordHasher;
 
@@ -21,11 +27,6 @@ class UserFixtures extends Fixture implements DependentFixtureInterface
     {
         $this->userPasswordHasher = $userPasswordHasher;
         $this->clientRepository = $clientRepository;
-    }
-
-    public function getDependencies()
-    {
-        return [ClientFixtures::class];
     }
 
     public function load(ObjectManager $manager): void

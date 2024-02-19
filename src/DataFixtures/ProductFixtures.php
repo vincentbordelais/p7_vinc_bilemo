@@ -8,6 +8,11 @@ use Doctrine\Bundle\FixturesBundle\Fixture;
 
 class ProductFixtures extends Fixture
 {
+    public function getDependencies()
+    {
+        return [];
+    }
+
     private $productData = 
     [
         [
@@ -43,11 +48,6 @@ class ProductFixtures extends Fixture
         
     ];
 
-    public function getDependencies()
-    {
-        return [];
-    }
-
     public function load(ObjectManager $manager): void
     {
         for ($i = 0; $i < count($this->productData); $i++) {
@@ -55,7 +55,7 @@ class ProductFixtures extends Fixture
             $product->setName($this->productData[$i]['name'])
                 ->setBrand($this->productData[$i]['brand'])
                 ->setDescription($this->productData[$i]['description'])
-                ->setPrice($this->productData[$i]['price']);;
+                ->setPrice($this->productData[$i]['price']);
             $manager->persist($product);
         };
 

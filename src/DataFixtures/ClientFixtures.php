@@ -3,17 +3,19 @@
 namespace App\DataFixtures;
 
 use App\Entity\Client;
+use App\Entity\Product;
+use App\DataFixtures\ProductFixtures;
 use Doctrine\Persistence\ObjectManager;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 
 class ClientFixtures extends Fixture
 {
-    private $nameData = ['Orange', 'Free', 'SFR', 'Bouygues'];
-
     public function getDependencies()
     {
-        return [];
+        return [ProductFixtures::class];
     }
+
+    private $nameData = ['Orange', 'Free', 'SFR', 'Bouygues'];
 
     public function load(ObjectManager $manager): void
     {
@@ -21,10 +23,16 @@ class ClientFixtures extends Fixture
             $client = new Client();
             $client->setName($name);
 
-            $manager->persist($client);
+            // $productRepository = $manager->getRepository(Product::class);
+            // $products = $productRepository->findAll();
+            // // Associer aléatoirement des produits aux clients
+            // shuffle($products);
+            // $randomProducts = array_slice($products, 0, 3);
+            // foreach ($randomProducts as $product) {
+            //     $client->addProduct($product);
+            // }
 
-            // Référence pour accéder aux clients dans d'autres fixtures si nécessaire
-            $this->addReference('client_' . strtolower($name), $client);
+            $manager->persist($client);
         }
         $manager->flush();
     }
