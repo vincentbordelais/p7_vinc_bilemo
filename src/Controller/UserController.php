@@ -11,9 +11,11 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class UserController extends AbstractController
 {
@@ -92,9 +94,31 @@ class UserController extends AbstractController
     }
     
     #[Route('/api/users', name: 'createUser', methods: ['POST'])]
-    public function createUser(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UrlGeneratorInterface $urlGenerator, ClientRepository $clientRepository): JsonResponse
-    {
-        $user = $serializer->deserialize($request->getContent(), User::class, 'json');
+    public function createUser(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UrlGeneratorInterface $urlGenerator, ClientRepository $clientRepository, ValidatorInterface $validator, UserPasswordHasherInterface $userPasswordHasher): JsonResponse
+    { 
+        $userData = json_decode($request->getContent(), true);
+
+        $user = new User();
+
+        $user->setUsername($userData['username']);
+        $user->setEmail($userData['email']);
+    
+        // Hachage du mot de passe
+        $hashedPassword = $userPasswordHasher->hashPassword($user, $userData['password']);
+        $user->setPassword($hashedPassword);
+
+        $roles = $userData['roles'] ?? [];
+        $user->setRoles($roles);
+
+        // On vérifie les erreurs :
+        $errors = $validator->validate($user); // On demande au validator de valider l'entité user et le résultat va dans error
+        if (count($errors) > 0) {
+            $errorMessages = [];
+            foreach ($errors as $error) {
+                $errorMessages[$error->getPropertyPath()] = $error->getMessage();
+            }
+            return new JsonResponse($errorMessages, JsonResponse::HTTP_BAD_REQUEST);
+        }
         $em->persist($user);
         $em->flush();
     
@@ -136,7 +160,7 @@ class UserController extends AbstractController
     }    
 
     #[Route('/api/users/{id}', name:"updateUser", methods:['PUT'])]
-    public function updateUser(Request $request, SerializerInterface $serializer, User $currentUser, EntityManagerInterface $em, ClientRepository $clientRepository): JsonResponse 
+    public function updateUser(Request $request, SerializerInterface $serializer, User $currentUser, EntityManagerInterface $em, ClientRepository $clientRepository, ValidatorInterface $validator, UserPasswordHasherInterface $userPasswordHasher ): JsonResponse 
     // $currentUser va contenir le user correspondant à l'{id} avant update
     {
         $updatedUser = $serializer->deserialize($request->getContent(), 
@@ -149,10 +173,20 @@ class UserController extends AbstractController
         $content = $request->toArray();
         $updatedUser->setUsername($content['username'])
             ->setEmail($content['email'])
-            ->setPassword($content['password'])
-            ->setRoles([$content['role']]);
+            ->setPassword($userPasswordHasher->hashPassword($updatedUser, $content['password']))
+            ->setRoles([$content['roles']]);
         $idClient = $content['idClient'] ?? -1;
         $updatedUser->setClient($clientRepository->find($idClient));
+
+        // On vérifie les erreurs :
+        $errors = $validator->validate($updatedUser); // On demande au validator de valider l'entité user et le résultat va dans error
+        if (count($errors) > 0) {
+            $errorMessages = [];
+            foreach ($errors as $error) {
+                $errorMessages[$error->getPropertyPath()] = $error->getMessage();
+            }
+            return new JsonResponse($errorMessages, JsonResponse::HTTP_BAD_REQUEST);
+        }
         
         $em->persist($updatedUser);
         $em->flush();

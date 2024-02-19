@@ -5,6 +5,7 @@ namespace App\Entity;
 use Doctrine\ORM\Mapping as ORM;
 use App\Repository\UserRepository;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
@@ -18,16 +19,23 @@ class User implements PasswordAuthenticatedUserInterface
 
     #[ORM\Column(length: 255)]
     #[Groups(["getUsers"])]
+    #[Assert\NotBlank(message: "Le username de l'utilisateur est obligatoire")]
+    #[Assert\Length(min: 1, max: 255, minMessage: "Le username doit faire au moins {{ limit }} caractères", maxMessage: "Le username ne peut pas faire plus de {{ limit }} caractères")]
     private ?string $username = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: "L'email de l'utilisateur est obligatoire")]
+    #[Assert\Email(message: "L'email {{ value }} n'est pas une adresse email valide.")]
     #[Groups(["getUsers"])]
     private ?string $email = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: "Le mot de passe de l'utilisateur est obligatoire")]
+    #[Assert\Length(min: 6, minMessage: "Le mot de passe doit faire au moins {{ limit }} caractères")]
     private ?string $password = null;
 
     #[ORM\Column]
+    #[Assert\NotBlank(message: "Au moins un rôle doit être attribué à l'utilisateur")]
     private array $roles = [];
 
     #[ORM\ManyToOne(inversedBy: 'users')]
