@@ -6,10 +6,11 @@ use Doctrine\ORM\Mapping as ORM;
 use App\Repository\UserRepository;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-class User implements PasswordAuthenticatedUserInterface
+class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -17,13 +18,7 @@ class User implements PasswordAuthenticatedUserInterface
     #[Groups(["getUsers"])]
     private ?int $id = null;
 
-    #[ORM\Column(length: 255)]
-    #[Groups(["getUsers"])]
-    #[Assert\NotBlank(message: "Le username de l'utilisateur est obligatoire")]
-    #[Assert\Length(min: 1, max: 255, minMessage: "Le username doit faire au moins {{ limit }} caractères", maxMessage: "Le username ne peut pas faire plus de {{ limit }} caractères")]
-    private ?string $username = null;
-
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 180, unique: true)]
     #[Assert\NotBlank(message: "L'email de l'utilisateur est obligatoire")]
     #[Assert\Email(message: "L'email {{ value }} n'est pas une adresse email valide.")]
     #[Groups(["getUsers"])]
@@ -45,18 +40,6 @@ class User implements PasswordAuthenticatedUserInterface
     public function getId(): ?int
     {
         return $this->id;
-    }
-
-    public function getUsername(): ?string
-    {
-        return $this->username;
-    }
-
-    public function setUsername(string $username): static
-    {
-        $this->username = $username;
-
-        return $this;
     }
 
     public function getEmail(): ?string
@@ -109,5 +92,33 @@ class User implements PasswordAuthenticatedUserInterface
         $this->client = $client;
 
         return $this;
+    }
+
+    /**
+     * A visual identifier that represents this user.
+     *
+     * @see UserInterface
+     */
+    public function getUserIdentifier(): string
+    {
+        return (string) $this->email;
+    }
+
+    /**
+     * getUsername permet de retourner le champ qui est utilisé pour l'authentification
+     * L'outil JWT aura besoin de cette méthode et le body de Postman contiendra: "username": "admin@bookapi.com",
+     */
+    public function getUsername(): string // c'est un alias de getUserIdentifier()
+    {
+        return (string) $this->getUserIdentifier();
+    }
+
+    /**
+     * @see UserInterface
+     */
+    public function eraseCredentials(): void
+    {
+        // If you store any temporary, sensitive data on the user, clear it here
+        // $this->plainPassword = null;
     }
 }

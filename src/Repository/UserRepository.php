@@ -21,6 +21,14 @@ class UserRepository extends ServiceEntityRepository
         parent::__construct($registry, User::class);
     }
 
+    public function findAllWithPagination($page, $limit) {
+        // nous utilisons le queryBuilder  de Doctrine pour créer une nouvelle requête qui va retourner l’ensemble des utilisateurs, en spécifiant :
+        $qb = $this->createQueryBuilder('b')
+            ->setFirstResult(($page - 1) * $limit) // à partir de quand nous allons récupérer les utilisateurs
+            ->setMaxResults($limit); // le nombre d'utilisateurs que nous voulons retourner. 
+        return $qb->getQuery()->getResult();
+    }
+
 //    /**
 //     * @return User[] Returns an array of User objects
 //     */

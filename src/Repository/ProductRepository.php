@@ -21,6 +21,14 @@ class ProductRepository extends ServiceEntityRepository
         parent::__construct($registry, Product::class);
     }
 
+    public function findAllWithPagination($page, $limit) {
+        // nous utilisons le queryBuilder  de Doctrine pour créer une nouvelle requête qui va retourner l’ensemble des produits, en spécifiant :
+        $qb = $this->createQueryBuilder('b')
+            ->setFirstResult(($page - 1) * $limit) // à partir de quand nous allons récupérer les produits
+            ->setMaxResults($limit); // le nombre de produits que nous voulons retourner. 
+        return $qb->getQuery()->getResult();
+    }
+
 //    /**
 //     * @return Product[] Returns an array of Product objects
 //     */

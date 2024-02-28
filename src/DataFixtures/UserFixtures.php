@@ -19,8 +19,8 @@ class UserFixtures extends Fixture implements DependentFixtureInterface
     }
     
     private $passwordData = 'aze';
+    
     private $userPasswordHasher;
-
     private $clientRepository;
 
     public function __construct(UserPasswordHasherInterface $userPasswordHasher,ClientRepository $clientRepository)
@@ -39,15 +39,16 @@ class UserFixtures extends Fixture implements DependentFixtureInterface
         for ($i = 0; $i < 20; $i++){
             $user = new User();
             $user
-                ->setUsername($faker->username)
                 ->setEmail($faker->email)
                 ->setPassword($this->userPasswordHasher->hashPassword($user, $this->passwordData))
                 ->setRoles(['ROLE_USER'])
                 ->setClient($clients[array_rand($clients)]);
-            if ($i === 0) { //
-                $user->setRoles(['ROLE_ADMIN']);
-                $user->setUsername('vincent.bordelais');
-                $user->setEmail('vincent.bordelais.dev@gmail.com');
+            if ($i === 0) {
+                $user
+                    ->setEmail('vincent.bordelais.dev@gmail.com')
+                    ->setPassword($this->userPasswordHasher->hashPassword($user, "password"))
+                    ->setRoles(['ROLE_ADMIN'])
+                    ->setClient($clients[array_rand($clients)]);
             }
             $manager->persist($user);
         }

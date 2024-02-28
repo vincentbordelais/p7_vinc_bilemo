@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -20,10 +21,13 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 class UserController extends AbstractController
 {
     #[Route('/api/users', name: 'users', methods: ['GET'])]
-    public function getUsersList(UserRepository $userRepository, SerializerInterface $serializer): JsonResponse
+    public function getUsersList(UserRepository $userRepository, SerializerInterface $serializer, Request $request): JsonResponse
     {
         // Récupération de la liste des utilisateurs
-        $userList = $userRepository->findAll();
+        // $userList = $userRepository->findAll();
+        $page = $request->get('page', 1); // offset est couramment utilisé à la place de page // 1: nbre de page par défaut si pas spécifié
+        $limit = $request->get('limit', 3); // 3: limite par défaut si pas spécifiée
+        $userList = $userRepository->findAllWithPagination($page, $limit);
 
         // Création d'un tableau pour stocker les utilisateurs avec les produits
         $usersWithProducts = [];
@@ -93,14 +97,13 @@ class UserController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
     
+    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour créer un utilisateur')]
     #[Route('/api/users', name: 'createUser', methods: ['POST'])]
     public function createUser(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UrlGeneratorInterface $urlGenerator, ClientRepository $clientRepository, ValidatorInterface $validator, UserPasswordHasherInterface $userPasswordHasher): JsonResponse
     { 
         $userData = json_decode($request->getContent(), true);
 
         $user = new User();
-
-        $user->setUsername($userData['username']);
         $user->setEmail($userData['email']);
     
         // Hachage du mot de passe
@@ -159,6 +162,7 @@ class UserController extends AbstractController
         return new JsonResponse($jsonUser, Response::HTTP_CREATED, ["location" => $location], true);
     }    
 
+    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour modifier un utilisateur')]
     #[Route('/api/users/{id}', name:"updateUser", methods:['PUT'])]
     public function updateUser(Request $request, SerializerInterface $serializer, User $currentUser, EntityManagerInterface $em, ClientRepository $clientRepository, ValidatorInterface $validator, UserPasswordHasherInterface $userPasswordHasher ): JsonResponse 
     // $currentUser va contenir le user correspondant à l'{id} avant update
@@ -171,7 +175,7 @@ class UserController extends AbstractController
         // $updatedUser est le user mis à jour (à partir des données de Postman)
         
         $content = $request->toArray();
-        $updatedUser->setUsername($content['username'])
+        $updatedUser
             ->setEmail($content['email'])
             ->setPassword($userPasswordHasher->hashPassword($updatedUser, $content['password']))
             ->setRoles([$content['roles']]);
