@@ -6,10 +6,12 @@ use App\Entity\User;
 use App\Repository\UserRepository;
 use App\Repository\ClientRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -21,49 +23,58 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 class UserController extends AbstractController
 {
     #[Route('/api/users', name: 'users', methods: ['GET'])]
-    public function getUsersList(UserRepository $userRepository, SerializerInterface $serializer, Request $request): JsonResponse
+    public function getUsersList(UserRepository $userRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache): JsonResponse
     {
-        // Récupération de la liste des utilisateurs
-        // $userList = $userRepository->findAll();
-        $page = $request->get('page', 1); // offset est couramment utilisé à la place de page // 1: nbre de page par défaut si pas spécifié
-        $limit = $request->get('limit', 3); // 3: limite par défaut si pas spécifiée
-        $userList = $userRepository->findAllWithPagination($page, $limit);
+        // Récupération à partir de la requête des paramètres de pagination  :
+        $page = $request->get('page', 1);
+        $limit = $request->get('limit', 3);
 
-        // Création d'un tableau pour stocker les utilisateurs avec les produits
-        $usersWithProducts = [];
+        $idCache = "getAllUsers-" . $page . "-" . $limit;
 
-        // Parcours de la liste des utilisateurs
-        foreach ($userList as $user) {
-            // Sérialisation de l'utilisateur en JSON
-            $jsonUser = $serializer->serialize($user, 'json', ['groups' => 'getUsers']);
+        // Récupération de la liste des utilisateurs depuis le cache ou la base de données
+        $usersWithProducts = $cache->get($idCache, function (ItemInterface $item) use ($userRepository, $serializer, $page, $limit) {
 
-            // Décodage du JSON en tableau associatif
-            $userArray = json_decode($jsonUser, true);
+            echo("L'élément n'est pas encore en cache");
 
-            // Récupération du client associé à l'utilisateur
-            $client = $user->getClient();
+            // Récupération de la liste des utilisateurs depuis le repository
+            $userList = $userRepository->findAllWithPagination($page, $limit);
 
-            // Récupération des produits associés au client
-            $products = $client ? $client->getProducts()->toArray() : [];
+            $item->tag("usersCache"); // ce tag sera utilisé pour rafraîchir ce cache après un deleteUser()
 
-            // Sérialisation des produits en JSON
-            $jsonProducts = $serializer->serialize($products, 'json');
+            // Parcours de la liste des utilisateurs
+            foreach ($userList as $user) {
+                // Sérialisation de l'utilisateur en JSON
+                $jsonUser = $serializer->serialize($user, 'json', ['groups' => 'getUsers']);
 
-            // Décodage du JSON des produits en tableau associatif
-            $productsArray = json_decode($jsonProducts, true);
+                // Décodage du JSON en tableau associatif
+                $userArray = json_decode($jsonUser, true);
 
-            // Ajout des produits au tableau de l'utilisateur
-            $userArray['client']['products'] = $productsArray;
+                // Récupération du client associé à l'utilisateur
+                $client = $user->getClient();
 
-            // Ajout de l'utilisateur modifié au tableau final
-            $usersWithProducts[] = $userArray;
-        }
+                // Récupération des produits associés au client
+                $products = $client ? $client->getProducts()->toArray() : [];
+
+                // Sérialisation des produits en JSON
+                $jsonProducts = $serializer->serialize($products, 'json');
+
+                // Décodage du JSON des produits en tableau associatif
+                $productsArray = json_decode($jsonProducts, true);
+
+                // Ajout des produits au tableau de l'utilisateur
+                $userArray['client']['products'] = $productsArray;
+
+                // Ajout de l'utilisateur modifié au tableau final
+                $usersWithProducts[] = $userArray;
+            }
+
+            return $usersWithProducts;
+        });
 
         // Sérialisation du tableau modifié en JSON et retour de la réponse
         return new JsonResponse(json_encode($usersWithProducts), Response::HTTP_OK, [], true);
     }
-
-
+    
     #[Route('/api/users/{id}', name: 'detailUser', methods: ['GET'])] // Plus simple avec ParamConverter :
     public function getDetailUser(User $user, SerializerInterface $serializer): JsonResponse 
     {
@@ -90,8 +101,9 @@ class UserController extends AbstractController
     }
 
     #[Route('/api/users/{id}', name: 'deleteUser', methods: ['DELETE'])]
-    public function deleteUser(User $user, EntityManagerInterface $em): JsonResponse 
+    public function deleteUser(User $user, EntityManagerInterface $em, TagAwareCacheInterface $cache): JsonResponse 
     {
+        $cache->invalidateTags(["usersCache"]); // les données changent, on rafraît le cache
         $em->remove($user);
         $em->flush();
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
@@ -164,7 +176,7 @@ class UserController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour modifier un utilisateur')]
     #[Route('/api/users/{id}', name:"updateUser", methods:['PUT'])]
-    public function updateUser(Request $request, SerializerInterface $serializer, User $currentUser, EntityManagerInterface $em, ClientRepository $clientRepository, ValidatorInterface $validator, UserPasswordHasherInterface $userPasswordHasher ): JsonResponse 
+    public function updateUser(Request $request, SerializerInterface $serializer, User $currentUser, EntityManagerInterface $em, ClientRepository $clientRepository, ValidatorInterface $validator, UserPasswordHasherInterface $userPasswordHasher, TagAwareCacheInterface $cache): JsonResponse 
     // $currentUser va contenir le user correspondant à l'{id} avant update
     {
         $updatedUser = $serializer->deserialize($request->getContent(), 
@@ -191,6 +203,8 @@ class UserController extends AbstractController
             }
             return new JsonResponse($errorMessages, JsonResponse::HTTP_BAD_REQUEST);
         }
+
+        $cache->invalidateTags(["usersCache"]);
         
         $em->persist($updatedUser);
         $em->flush();

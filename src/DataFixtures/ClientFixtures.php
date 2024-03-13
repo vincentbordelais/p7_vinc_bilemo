@@ -7,8 +7,9 @@ use App\Entity\Product;
 use App\DataFixtures\ProductFixtures;
 use Doctrine\Persistence\ObjectManager;
 use Doctrine\Bundle\FixturesBundle\Fixture;
+use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 
-class ClientFixtures extends Fixture
+class ClientFixtures extends Fixture implements DependentFixtureInterface
 {
     public function getDependencies()
     {
@@ -19,18 +20,18 @@ class ClientFixtures extends Fixture
 
     public function load(ObjectManager $manager): void
     {
+        $products = $manager->getRepository(Product::class)->findAll();
+
         foreach ($this->nameData as $name) {
             $client = new Client();
             $client->setName($name);
 
-            // $productRepository = $manager->getRepository(Product::class);
-            // $products = $productRepository->findAll();
-            // // Associer aléatoirement des produits aux clients
-            // shuffle($products);
-            // $randomProducts = array_slice($products, 0, 3);
-            // foreach ($randomProducts as $product) {
-            //     $client->addProduct($product);
-            // }
+            // On assigne aléatoirement 2 products à chaque client :
+            shuffle($products);
+            $randomProducts = array_slice($products, 0, 2);
+            foreach ($randomProducts as $product) {
+                $client->addProduct($product);
+            }
 
             $manager->persist($client);
         }
