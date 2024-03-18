@@ -5,18 +5,19 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Repository\UserRepository;
 use App\Repository\ClientRepository;
+use JMS\Serializer\SerializerInterface;
 use Doctrine\ORM\EntityManagerInterface;
+use JMS\Serializer\SerializationContext;
+use JMS\Serializer\DeserializationContext;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
-use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
-use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -44,7 +45,8 @@ class UserController extends AbstractController
             // Parcours de la liste des utilisateurs
             foreach ($userList as $user) {
                 // Sérialisation de l'utilisateur en JSON
-                $jsonUser = $serializer->serialize($user, 'json', ['groups' => 'getUsers']);
+                $context = SerializationContext::create()->setGroups(['getUsers']);
+                $jsonUser = $serializer->serialize($user, 'json', $context);
 
                 // Décodage du JSON en tableau associatif
                 $userArray = json_decode($jsonUser, true);
@@ -79,7 +81,8 @@ class UserController extends AbstractController
     public function getDetailUser(User $user, SerializerInterface $serializer): JsonResponse 
     {
         // Récupération de l'utilisateur et sérialisation en JSON
-        $jsonUser = $serializer->serialize($user, 'json', ['groups' => 'getUsers']);
+        $context = SerializationContext::create()->setGroups(['getUsers']);
+        $jsonUser = $serializer->serialize($user, 'json', $context);
 
         // Décodage du JSON en tableau associatif
         $userArray = json_decode($jsonUser, true);
@@ -103,7 +106,7 @@ class UserController extends AbstractController
     #[Route('/api/users/{id}', name: 'deleteUser', methods: ['DELETE'])]
     public function deleteUser(User $user, EntityManagerInterface $em, TagAwareCacheInterface $cache): JsonResponse 
     {
-        $cache->invalidateTags(["usersCache"]); // les données changent, on rafraît le cache
+        $cache->invalidateTags(["usersCache"]); // les données changent, on rafraîchie le cache
         $em->remove($user);
         $em->flush();
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
@@ -117,7 +120,7 @@ class UserController extends AbstractController
 
         $user = new User();
         $user->setEmail($userData['email']);
-    
+        
         // Hachage du mot de passe
         $hashedPassword = $userPasswordHasher->hashPassword($user, $userData['password']);
         $user->setPassword($hashedPassword);
@@ -125,8 +128,13 @@ class UserController extends AbstractController
         $roles = $userData['roles'] ?? [];
         $user->setRoles($roles);
 
+        // Récupération du client et assignation à l'utilisateur
+        $idClient = $userData['idClient'] ?? -1;
+        $client = $clientRepository->find($idClient);
+        $user->setClient($client);
+
         // On vérifie les erreurs :
-        $errors = $validator->validate($user); // On demande au validator de valider l'entité user et le résultat va dans error
+        $errors = $validator->validate($user);
         if (count($errors) > 0) {
             $errorMessages = [];
             foreach ($errors as $error) {
@@ -134,57 +142,49 @@ class UserController extends AbstractController
             }
             return new JsonResponse($errorMessages, JsonResponse::HTTP_BAD_REQUEST);
         }
+
         $em->persist($user);
         $em->flush();
-    
-        $content = $request->toArray();
-        $idClient = $content['idClient'] ?? -1;
-    
-        $client = $clientRepository->find($idClient);
-        $user->setClient($client);
-    
+        
+        // Sérialisation de l'utilisateur avec les données complètes du client et des produits
+        $context = SerializationContext::create()->setGroups(['getUsers']);
+        $jsonUser = $serializer->serialize($user, 'json', $context);
+        
         // Récupération des produits associés au client
         $products = $client ? $client->getProducts()->toArray() : [];
-    
+        
         // Sérialisation complète des produits avec toutes les informations
         $productsData = [];
         foreach ($products as $product) {
             $productsData[] = $serializer->serialize($product, 'json');
         }
-    
-        // Sérialisation de l'utilisateur avec les données complètes du client et des produits
-        $jsonUser = $serializer->serialize($user, 'json', ['groups' => 'getUsers']);
-    
+
         // Décodage des données sérialisées des produits
         $decodedProductsData = [];
         foreach ($productsData as $productData) {
             $decodedProductsData[] = json_decode($productData, true);
         }
-    
+
         // Ajout des produits sérialisés aux données du client
         $jsonUserArray = json_decode($jsonUser, true);
         $jsonUserArray['client']['products'] = $decodedProductsData;
-    
+
         // Régénération de la réponse JSON avec les données mises à jour
         $jsonUser = json_encode($jsonUserArray);
-    
+
         // Génération de l'URL de détail de l'utilisateur
         $location = $urlGenerator->generate('detailUser', ['id' => $user->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
-    
+
         return new JsonResponse($jsonUser, Response::HTTP_CREATED, ["location" => $location], true);
-    }    
+    } 
 
     #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour modifier un utilisateur')]
     #[Route('/api/users/{id}', name:"updateUser", methods:['PUT'])]
     public function updateUser(Request $request, SerializerInterface $serializer, User $currentUser, EntityManagerInterface $em, ClientRepository $clientRepository, ValidatorInterface $validator, UserPasswordHasherInterface $userPasswordHasher, TagAwareCacheInterface $cache): JsonResponse 
     // $currentUser va contenir le user correspondant à l'{id} avant update
     {
-        $updatedUser = $serializer->deserialize($request->getContent(), 
-                User::class, 
-                'json', 
-                // Bon, là il n'y a rien à comprendre, grâce à AbstractNormalizer::OBJECT_TO_POPULATE, on peut écrire à l'intérieur de $currentUser :
-                [AbstractNormalizer::OBJECT_TO_POPULATE => $currentUser]);
-        // $updatedUser est le user mis à jour (à partir des données de Postman)
+        $context = DeserializationContext::create()->setAttribute('object_to_populate', $currentUser);
+        $updatedUser = $serializer->deserialize($request->getContent(), User::class, 'json', $context);
         
         $content = $request->toArray();
         $updatedUser

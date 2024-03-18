@@ -6,9 +6,9 @@ use App\Entity\User;
 use App\Entity\Product;
 use Doctrine\ORM\Mapping as ORM;
 use App\Repository\ClientRepository;
+use JMS\Serializer\Annotation\Groups;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
-use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: ClientRepository::class)]
 class Client

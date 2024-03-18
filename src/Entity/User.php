@@ -4,7 +4,8 @@ namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
 use App\Repository\UserRepository;
-use Symfony\Component\Serializer\Annotation\Groups;
+use JMS\Serializer\Annotation as JMS;
+use JMS\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -29,11 +30,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Assert\Length(min: 6, minMessage: "Le mot de passe doit faire au moins {{ limit }} caractères")]
     private ?string $password = null;
 
-    #[ORM\Column]
+    #[ORM\Column(type: "json")]
+    #[JMS\Type("array<string>")]
     #[Assert\NotBlank(message: "Au moins un rôle doit être attribué à l'utilisateur")]
     private array $roles = [];
 
     #[ORM\ManyToOne(inversedBy: 'users')]
+    // #[JMS\Type("integer")]
     #[Groups(["getUsers"])]
     private ?Client $client = null;
 
