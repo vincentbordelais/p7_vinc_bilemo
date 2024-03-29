@@ -1,0 +1,55 @@
+nelmio_api_doc:
+    documentation:
+        info:
+            title: p7_vinc_bilemo
+            description: This is an awesome app by vincentbordelais!
+            version: 1.0.0
+
+        paths:
+            /api/login_check:
+                post:
+                    operationId: postCredentialsItem
+                    tags:
+                        - Token
+                    summary: Permet d'obtenir le token JWT pour se logger.
+                    requestBody:
+                        description: Saisir les données pour la création d'un nouveau token JWT
+                        content:
+                            application/json:
+                                schema:
+                                    $ref: '#/components/schemas/Credentials'
+                    responses:
+                        '200':
+                            description: Récupère le token JWT
+                            content:
+                                application/json:
+                                    schema:
+                                        $ref: '#/components/schemas/Token'                       
+        components:
+            schemas:
+                Credentials:
+                    type: object
+                    properties:
+                        username:
+                            type: string
+                            default: vincent.bordelais.dev@gmail.com
+                        password:
+                            type: string
+                            default: password
+                Token:
+                    type: object
+                    properties:
+                        token:
+                            type: string
+                            readOnly: true
+            securitySchemes:
+                bearerAuth:
+                    type: apiKey
+                    in: header
+                    name: Authorization # or another header name
+        security:
+            - bearerAuth: []
+
+    areas: # to filter documented areas
+        path_patterns:
+            - ^/api(?!/doc$) # Accepts routes under /api except /api/doc

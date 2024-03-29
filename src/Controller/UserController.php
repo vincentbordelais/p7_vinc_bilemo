@@ -20,10 +20,44 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\IsGranted;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Nelmio\ApiDocBundle\Annotation\Model;
+use Nelmio\ApiDocBundle\Annotation\Security;
+use OpenApi\Annotations as OA;
 
 class UserController extends AbstractController
 {
-    #[Route('/api/users', name: 'users', methods: ['GET'])]
+    /**
+     * Permet de récupérer l'ensemble des utilisateurs.
+     *
+     * @OA\Response(
+     *     response=200,
+     *     description="Retourne la liste des utilisateurs",
+     *     @OA\JsonContent(
+     *        type="array",
+     *        @OA\Items(ref=@Model(type=User::class, groups={"getUsers"}))
+     *     )
+     * )
+     * @OA\Parameter(
+     *     name="page",
+     *     in="query",
+     *     description="La page que l'on veut récupérer",
+     *     @OA\Schema(type="int")
+     * )
+     * @OA\Parameter(
+     *     name="limit",
+     *     in="query",
+     *     description="Le nombre d'éléments que l'on veut récupérer",
+     *     @OA\Schema(type="int")
+     * )
+     * @OA\Tag(name="Users")
+     *
+     * @param UserRepository $userRepository
+     * @param SerializerInterface $serializer
+     * @param Request $request
+     * @param TagAwareCacheInterface $cache
+     * @return JsonResponse
+     */
+    #[Route('/api/users', name: 'users', methods: ['GET'])]  // https://127.0.0.1:8000/api/users?page=3&limit=2
     public function getUsersList(UserRepository $userRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache): JsonResponse
     {
         // Récupération à partir de la requête des paramètres de pagination  :
@@ -77,6 +111,21 @@ class UserController extends AbstractController
         return new JsonResponse(json_encode($usersWithProducts), Response::HTTP_OK, [], true);
     }
     
+    /**
+     * Permet de récupérer un utilisateur en particulier en fonction de son id. 
+     *
+     * @OA\Parameter(
+     *    name="id",
+     *    in="path",
+     *    description="L'id de l'utilisateur à retourner",
+     *    @OA\Schema(type="string")
+     * )
+     * @OA\Tag(name="Users")
+     * 
+     * @param User $user
+     * @param SerializerInterface $serializer
+     * @return JsonResponse
+     */
     #[Route('/api/users/{id}', name: 'detailUser', methods: ['GET'])] // Plus simple avec ParamConverter :
     public function getDetailUser(User $user, SerializerInterface $serializer): JsonResponse 
     {
@@ -103,6 +152,22 @@ class UserController extends AbstractController
         return new JsonResponse(json_encode($userArray), Response::HTTP_OK, ['accept' => 'json'], true);
     }
 
+    /**
+     * Permet de supprimer un utilisateur par rapport à son id.
+     * 
+     * @OA\Parameter(
+     *    name="id",
+     *    in="path",
+     *    description="L'id de l'utilisateur à supprimer",
+     *    @OA\Schema(type="string")
+     * )
+     * @OA\Tag(name="Users")
+     * 
+     * @param User $user
+     * @param EntityManagerInterface $em
+     * @param TagAwareCacheInterface $cache
+     * @return JsonResponse 
+     */
     #[Route('/api/users/{id}', name: 'deleteUser', methods: ['DELETE'])]
     public function deleteUser(User $user, EntityManagerInterface $em, TagAwareCacheInterface $cache): JsonResponse 
     {
@@ -112,6 +177,46 @@ class UserController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
     
+    /**
+     * Permet de créer un nouvel utilisateur.
+     * 
+     * Le paramètre idClient est géré "à la main", pour créer l'association entre un utilisateur et un client. 
+     * S'il ne correspond pas à un client valide, alors l'utilisateur sera considéré comme sans client.
+     * 
+     *    
+     * @OA\RequestBody(
+     *     required=true,
+     *     description="Saisir les données de l'utilisateur à créer :",
+     *     @OA\JsonContent(
+     *         type="object",
+     *         @OA\Property(property="email", type="string", example="pierre.hrenry@free.fr"),
+     *         @OA\Property(property="password", type="string", example="azeaze"),
+     *         @OA\Property(property="roles", type="array", @OA\Items(type="string"), example={"ROLE_USER"}),
+     *         @OA\Property(property="idClient", type="string", example="3")
+     *         )
+     *     )
+     * @OA\Response(
+     *     response=201,
+     *     description="Utilisateur créé avec succès",
+     *     @OA\JsonContent(
+     *         @OA\Schema(ref="#/components/schemas/User")
+     *     )
+     * ),
+     * @OA\Response(
+     *         response=400,
+     *         description="Données non valides"
+     *     )
+     * @OA\Tag(name="Users") 
+     *
+     * @param Request $request
+     * @param SerializerInterface $serializer
+     * @param EntityManagerInterface $em
+     * @param UrlGeneratorInterface $urlGenerator
+     * @param ClientRepository $clientRepository
+     * @param ValidatorInterface $validator
+     * @param UserPasswordHasherInterface $userPasswordHasher
+     * @return JsonResponse
+     */
     #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour créer un utilisateur')]
     #[Route('/api/users', name: 'createUser', methods: ['POST'])]
     public function createUser(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UrlGeneratorInterface $urlGenerator, ClientRepository $clientRepository, ValidatorInterface $validator, UserPasswordHasherInterface $userPasswordHasher): JsonResponse
@@ -178,6 +283,47 @@ class UserController extends AbstractController
         return new JsonResponse($jsonUser, Response::HTTP_CREATED, ["location" => $location], true);
     } 
 
+    /**
+    * Permet de mettre à jour un utilisateur en fonction de son id.
+    *
+    * @OA\Parameter(
+    *    name="id",
+    *    in="path",
+    *    description="L'id de l'utilisateur à mettre à jour",
+    *    @OA\Schema(type="string")
+    * )
+    *    
+    * @OA\RequestBody(
+    *     required=true,
+    *     description="Saisir la mise à jour de l'utilisateur :",
+    *     @OA\JsonContent(
+    *         type="object",
+    *         @OA\Property(property="email", type="string", example="test@free.fr"),
+    *         @OA\Property(property="password", type="string", example="azeaze"),
+    *         @OA\Property(property="roles", type="array", @OA\Items(type="string"), example={"ROLE_USER"}),
+    *         @OA\Property(property="idClient", type="string", example="3")
+    *         )
+    *     )
+    *     @OA\Response(
+    *         response=201,
+    *         description="Utilisateur mis à jour avec succès"
+    *     ),
+    *     @OA\Response(
+    *         response=400,
+    *         description="Données non valides"
+    *     )
+    * @OA\Tag(name="Users")
+    *
+    * @param Request $request
+    * @param SerializerInterface $serializer
+    * @param User $currentUser
+    * @param EntityManagerInterface $em
+    * @param ClientRepository $clientRepository
+    * @param ValidatorInterface $validator
+    * @param UserPasswordHasherInterface $userPasswordHasher
+    * @param TagAwareCacheInterface $cache
+    * @return JsonResponse
+    */
     #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour modifier un utilisateur')]
     #[Route('/api/users/{id}', name:"updateUser", methods:['PUT'])]
     public function updateUser(Request $request, SerializerInterface $serializer, User $currentUser, EntityManagerInterface $em, ClientRepository $clientRepository, ValidatorInterface $validator, UserPasswordHasherInterface $userPasswordHasher, TagAwareCacheInterface $cache): JsonResponse 

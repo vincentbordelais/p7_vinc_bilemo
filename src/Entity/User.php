@@ -137,6 +137,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     /**
+     * getUsername permet de retourner le champ qui est utilisé pour l'authentification
+     * L'outil JWT aura besoin de cette méthode et le body de Postman contiendra: "username": "admin@bookapi.com",
+     */
+    public function getUsername(): string // c'est un alias de getUserIdentifier()
+    {
+        return (string) $this->getUserIdentifier();
+    }
+
+    /**
      * @see UserInterface
      */
     public function eraseCredentials(): void
