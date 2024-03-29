@@ -17,22 +17,22 @@
 
 ##  Création de vos clefs publiques et privées pour JWT
 
-Dans le dossier config, créer le répertoire "jwt" 
-Pour pour créer la clef privée :
-    - openssl genpkey -out config/jwt/private.pem -aes256 -algorithm rsa -pkeyopt rsa_keygen_bits:4096
-Pour créer la clef publique :
-    - openssl pkey -in config/jwt/private.pem -out config/jwt/public.pem-pubout    
+Dans le dossier config, créer le répertoire "jwt"  
+Pour pour créer la clef privée :  
+    - openssl genpkey -out config/jwt/private.pem -aes256 -algorithm rsa -pkeyopt rsa_keygen_bits:4096  
+Pour créer la clef publique :  
+    - openssl pkey -in config/jwt/private.pem -out config/jwt/public.pem-pubout      
 
 ## Création d'un fichier .env.local
 
-Ce fichier doit contenir :
- vos identifiants de connexion à la base de données :
-    - DATABASE_URL="mysql://root:@127.0.0.1:3306/p7_vinc_bilemo"
- le chemin vers vos clefs privées et publiques :
-    - JWT_SECRET_KEY=%kernel.project_dir%/config/jwt/private.pem
-    - JWT_PUBLIC_KEY=%kernel.project_dir%/config/jwt/public.pem
- votre passphrase de création de clef :
-    - JWT_PASSPHRASE=password
+Ce fichier doit contenir :  
+ vos identifiants de connexion à la base de données :  
+    - DATABASE_URL="mysql://root:@127.0.0.1:3306/p7_vinc_bilemo"  
+ le chemin vers vos clefs privées et publiques :  
+    - JWT_SECRET_KEY=%kernel.project_dir%/config/jwt/private.pem  
+    - JWT_PUBLIC_KEY=%kernel.project_dir%/config/jwt/public.pem  
+ votre passphrase de création de clef :  
+    - JWT_PASSPHRASE=password  
 
 ## Création de la base de données
 
@@ -52,14 +52,14 @@ Ce fichier doit contenir :
     
 ## Test des routes de l'API via Postman
 
-Methode POST https://127.0.0.1:8000/api/login_check : pour se logger
-Methode GET https://127.0.0.1:8000/api/products : pour récupérer l'ensemble des produits.
-Methode GET https://127.0.0.1:8000/api/products/{id} : pour récupérer un produit en particulier en fonction de son id.
-Methode GET https://127.0.0.1:8000/api/users : pour récupérer l'ensemble des utilisateurs.
-Methode POST https://127.0.0.1:8000/api/users : pour créer un nouvel utilisateur.
-Methode GET https://127.0.0.1:8000/api/users/{id} : pour récupérer un utilisateur en particulier en fonction de son id.
-Methode PUT https://127.0.0.1:8000/api/users/{id} : pour mettre à jour un utilisateur en fonction de son id.
-Methode DELETE https://127.0.0.1:8000/api/users/{id} : pour supprimer un utilisateur par rapport à son id.
+Methode POST https://127.0.0.1:8000/api/login_check : pour se logger.  
+Methode GET https://127.0.0.1:8000/api/products : pour récupérer l'ensemble des produits.  
+Methode GET https://127.0.0.1:8000/api/products/{id} : pour récupérer un produit en particulier en fonction de son id.  
+Methode GET https://127.0.0.1:8000/api/users : pour récupérer l'ensemble des utilisateurs.  
+Methode POST https://127.0.0.1:8000/api/users : pour créer un nouvel utilisateur.  
+Methode GET https://127.0.0.1:8000/api/users/{id} : pour récupérer un utilisateur en particulier en fonction de son id.  
+Methode PUT https://127.0.0.1:8000/api/users/{id} : pour mettre à jour un utilisateur en fonction de son id.  
+Methode DELETE https://127.0.0.1:8000/api/users/{id} : pour supprimer un utilisateur par rapport à son id.  
     
 ## Documentation de l'API via Nelmio
 
